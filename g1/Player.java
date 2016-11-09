@@ -136,11 +136,9 @@ public class Player implements sqdance.sim.Player {
         Point[] instructions = new Point[d];
         int numPairs = d / 2;
         if (numPairs <= MAX_LINES * MAX_PAIRS_IN_LINE) {        
-            System.out.println("using simpleLines");
             instructions = simpleLines(dancers, scores, partner_ids, enjoyment_gained);
         }
         else {
-            System.out.println("using default");
             instructions = defaultPlayer(dancers, scores, partner_ids, enjoyment_gained);
         }
         
@@ -178,11 +176,14 @@ public class Player implements sqdance.sim.Player {
             }
             else {
                 // dancer not on the conveyor, in a normal line
-                boolean onLeft = true;
+                boolean onLeft = false;
 
                 int currLine = (int)((currX - INITIAL_X) / LINE_DIST);
-                if (((currX - INITIAL_X) % LINE_DIST) >= (PARTNER_DIST / 2) ) {
-                    onLeft = false;
+                double currLineStart = currLine * LINE_DIST + INITIAL_X;
+                double diffFromLeft = currX - currLineStart;
+                
+                if (diffFromLeft < 0.0001 && diffFromLeft > -0.0001) {
+                    onLeft = true;
                 }
 
                 // find highest and lowest y in this dancer's line
