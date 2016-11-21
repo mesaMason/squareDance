@@ -20,6 +20,8 @@ public class SnakePlayer implements sqdance.sim.Player {
     private boolean[][] occupied;
     private boolean findSoulmateOption = false;
     private boolean findFriendsOption = false;
+    private Set<Integer> activeFriends; // which spots on the snake are currently paired
+    private int turnCounter = 0;
     
     // constants
     private final double GRID_GAP = 0.5001; // distance between grid points
@@ -43,8 +45,9 @@ public class SnakePlayer implements sqdance.sim.Player {
         this.room_side = (double) room_side;
 
         // choose type of player: find soulmate or friends
-        findSoulmateOption = true;
-        findFriendsOption = false;
+        findSoulmateOption = false;
+        findFriendsOption = true;
+        activeFriends = new HashSet<Integer>();
         
         // create the grid
         double side = room_side / GRID_GAP;
@@ -95,6 +98,8 @@ public class SnakePlayer implements sqdance.sim.Player {
     // partner_ids: index of the current dance partner. -1 if no dance partner
     // enjoyment_gained: integer amount (-5,0,3,4, or 6) of enjoyment gained in the most recent 6-second interval
     public Point[] play(Point[] dancers, int[] scores, int[] partner_ids, int[] enjoyment_gained) {
+        turnCounter++;
+        
         if (findSoulmateOption) {
             return findSoulmatePlay(dancers, scores, partner_ids, enjoyment_gained);
         }
@@ -112,21 +117,106 @@ public class SnakePlayer implements sqdance.sim.Player {
 
     public Point[] findFriendsPlay(Point[] dancers, int[] scores, int[] partner_ids, int[] enjoyment_gained) {
         Point[] instructions = new Point[d];
+        int numDancers = snakeDancers.size();
         for (int i = 0; i < d; i++) {
             instructions[i] = new Point(0, 0);
         }
 
         // time to dance and collect points and data
-        if (mode == 0) {
-            mode = 1;
+        if ((turnCounter % 20) != 0) {
             return instructions;
         }
 
-
-        for (int i = 0; i < d; ++ i) {
-            instructions[i] = direction(subtract(destinations[i], dancers[i]));
+        // remove expired friends from activeFriends
+        // 1-indexed because snakeDancers[0] is stationary
+        for (int i = 1; i < numDancers; i++) {
+            int curr = snakeDancers.get(i);
+            if (enjoyment_gained[curr] == 0) {
+                activeFriends.remove(i);
+            }
         }
-        mode = 0; // dance next turn
+        
+        // find new possible friend pairs
+        // 1-indexed because snakeDancers[0] is stationary
+        for (int i = 1; i < numDancers; i++) {
+            if (activeFriends.contains(i)) {
+                continue;
+            }
+            int curr = snakeDancers.get(i);
+            if (enjoyment_gained[curr] == 4) {
+                // check if before 2 and after 2 are already paired
+                int before1 = (i - 1) % numDancers;
+                if (before1 == 0) {
+                    before1 = (before1 - 1) % numDancers;
+                }
+                int before2 = (before1 - 1) % numDancers;
+                if (before2 == 0) {
+                    before2 = (before2 - 1) % numDancers;
+                }                
+                int after1 = (i + 1) % numDancers;
+                if (after1 == 0) {
+                    after1++;
+                }
+                int after2 = (after1 + 1) % numDancers;
+                if (after2 == 0) {
+                    after2++;
+                }
+                if ((activeFriends.contains(before1) && activeFriends.contains(before2))
+                    || (activeFriends.contains(after1) && activeFriends.contains(after2))) {
+                    continue;
+                }
+                else {
+                    activeFriends.add(i);
+                }
+            }
+        }
+
+        // snake along, skipping over currently paired friends
+        List<Integer> newSnakeDancers = new ArrayList<Integer>(numDancers);
+        for (int i = 0; i < numDancers; i++) {
+            newSnakeDancers.add(i);
+        }
+        newSnakeDancers.set(0, snakeDancers.get(0));
+        // 1-indexed because snakeDancers[0] is stationary
+        for (int i = 1; i < numDancers; i++) {
+            int curr = snakeDancers.get(i);
+            if (activeFriends.contains(i)) {
+                // don't move currently dancing friends
+                newSnakeDancers.set(i, curr);
+                continue; 
+            }
+            int nextIndex = (i + 1) % numDancers;
+            if (nextIndex == 0) {
+                nextIndex++;
+            }
+            // check if next THREE positions are paired (3, not 2, for the edge case when the stationary is paired!)
+            if (activeFriends.contains(nextIndex)) {
+                nextIndex = (nextIndex + 1) % numDancers;
+                if (nextIndex == 0) {
+                    nextIndex++;
+                }
+            }
+            if (activeFriends.contains(nextIndex)) {
+                nextIndex = (nextIndex + 1) % numDancers;
+                if (nextIndex == 0) {
+                    nextIndex++;
+                }
+            }
+            if (activeFriends.contains(nextIndex)) {
+                nextIndex = (nextIndex + 1) % numDancers;
+                if (nextIndex == 0) {
+                    nextIndex++;
+                }
+            }            
+            newSnakeDancers.set(nextIndex, curr);
+            destinations[curr] = snake[nextIndex];
+        }
+        snakeDancers = newSnakeDancers;
+        
+        for (int i = 0; i < d; ++ i) {
+            instructions[i] = getVector(destinations[i], dancers[i]);
+        }
+
         return instructions;        
     }
     
@@ -182,8 +272,6 @@ public class SnakePlayer implements sqdance.sim.Player {
                         }
                     }
                 }
-                //destinations[l] = new Point(grid[foundX][foundY].x, grid[foundX][foundY].y);
-                //destinations[r] = new Point(grid[foundX+1][foundY].x, grid[foundX+1][foundY].y);
                 destinations[l] = grid[foundX][foundY];
                 destinations[r] = grid[foundX+1][foundY];
                 occupied[foundX][foundY] = true;
@@ -211,7 +299,7 @@ public class SnakePlayer implements sqdance.sim.Player {
         }
 
         for (int i = 0; i < d; ++ i) {
-            instructions[i] = direction(subtract(destinations[i], dancers[i]));
+            instructions[i] = getVector(destinations[i], dancers[i]);            
         }
         mode = 0; // dance next turn
         return instructions;        
@@ -315,18 +403,18 @@ public class SnakePlayer implements sqdance.sim.Player {
         return newSnake;
     }
 
-    private Point subtract(Point a, Point b) {
-        return new Point(a.x - b.x, a.y - b.y);
-    }
+
 
     private double distance(Point a, Point b) {
         return Math.hypot(a.x - b.x, a.y - b.y);
     }
 
-    private Point direction(Point a) {
-        double l = Math.hypot(a.x, a.y);
-        if (l <= 1 + 1e-8) return a;
-        else return new Point(a.x / l, a.y / l);
+    private Point getVector(Point a, Point b) {
+        Point diff = new Point(a.x - b.x, a.y - b.y);
+        double hypot = Math.hypot(diff.x, diff.y);
+        if (hypot >= 2) {
+            diff = new Point(diff.x/hypot * 2, diff.y/hypot * 2);
+        }
+        return diff;
     }
-    
 }
