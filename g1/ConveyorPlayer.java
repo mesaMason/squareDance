@@ -98,6 +98,8 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         return L;
     }
 
+    private int play_counter = 0;
+
     // play function
     // dancers: array of locations of the dancers
     // scores: cumulative score of the dancers
@@ -109,35 +111,38 @@ public class ConveyorPlayer implements sqdance.sim.Player {
             instructions[i] = new Point(0, 0);
         }
 
-        // TODO: uncomment once initial setup is right
-        return instructions;
+        // time to dance and collect points and data
+        if (mode == 0) {
+            if (play_counter <= 10) {
+                play_counter += 1;
+                return instructions;
+            } else {
+                play_counter = 0;
+                mode = 1;
+            }
+            return instructions;
+        }
 
-        // // time to dance and collect points and data
-        // if (mode == 0) {
-        //     mode = 1;
-        //     return instructions;
-        // }
-
-        // // snake along and update destinations
-        // List<Integer> newSnakeDancers = new ArrayList<Integer>();
-        // newSnakeDancers.add(snakeDancers.get(0));
-        // int curr = snakeDancers.get(snakeDancers.size() - 1); // move last one to beginning
-        // destinations[curr] = snake[1];
-        // newSnakeDancers.add(curr);
-        // for (int i = 1; i < snakeDancers.size()-1; i++) {
-        //     curr = snakeDancers.get(i);
-        //     int nextPosInSnake = (i + 1) % snakeDancers.size();
-        //     destinations[curr] = snake[nextPosInSnake];
-        //     newSnakeDancers.add(curr);
-        // }
-        // snakeDancers = newSnakeDancers;
+        // snake along and update destinations
+        List<Integer> newSnakeDancers = new ArrayList<Integer>();
+        newSnakeDancers.add(snakeDancers.get(0));
+        int curr = snakeDancers.get(snakeDancers.size() - 1); // move last one to beginning
+        destinations[curr] = snake[0];
+        newSnakeDancers.add(curr);
+        for (int i = 1; i < snakeDancers.size()-1; i++) {
+            curr = snakeDancers.get(i);
+            int nextPosInSnake = (i + 1) % snakeDancers.size();
+            destinations[curr] = snake[nextPosInSnake];
+            newSnakeDancers.add(curr);
+        }
+        snakeDancers = newSnakeDancers;
         
 
-        // for (int i = 0; i < d; ++ i) {
-        //     instructions[i] = direction(subtract(destinations[i], dancers[i]));
-        // }
-        // mode = 0; // dance next turn
-        // return instructions;        
+        for (int i = 0; i < d; ++ i) {
+            instructions[i] = direction(subtract(destinations[i], dancers[i]));
+        }
+        mode = 0; // dance next turn
+        return instructions;        
     }
     
     private int total_enjoyment(int enjoyment_gained) {
@@ -147,20 +152,6 @@ public class ConveyorPlayer implements sqdance.sim.Player {
 	case 6: return 10800; // soulmate
 	default: throw new IllegalArgumentException("Not dancing with anyone...");
 	}	
-    }
-
-    /* recreates the snake based on a list of new dancers in the snake
-       Needs to: 
-        - set old snake as unoccupied and reoccupy new cells
-        - recreate array of points that make up a snake
-        - assign the dancers destinations to their places on the new snake
-     */
-    private void recreateSnake(List<Integer> dancers) {
-        snake = createSnake(dancers.size());
-        for (int i = 0; i < dancers.size(); i++) {
-            int curr = dancers.get(i);
-            destinations[curr] = snake[i];
-        }
     }
 
     // creates a new array of points that consist of a snake of numDancers length
