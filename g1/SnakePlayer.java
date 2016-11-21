@@ -137,6 +137,7 @@ public class SnakePlayer implements sqdance.sim.Player {
         }
 
         // time to dance and collect points and data
+        // TODO: tune how often this switch is done to maximize score
         if (mode == 0) {
             mode = 1;
             return instructions;

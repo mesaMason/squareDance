@@ -20,18 +20,33 @@ public class Player implements sqdance.sim.Player {
 
     // players
     SnakePlayer snakePlayer;
+    ConveyorPlayer conveyorPlayer;
+
+    public final int CONVEYOR_THRESHOLD = 600;
     
     // init function called once with simulation parameters before anything else is called
     public void init(int d, int room_side) {
-        snakePlayer = new SnakePlayer();
-        snakePlayer.init(d, room_side);
+        this.d = d;
+        this.room_side = room_side;
+        if(d < CONVEYOR_THRESHOLD) {
+            snakePlayer = new SnakePlayer();
+            snakePlayer.init(d, room_side);
+        } else {
+            conveyorPlayer = new ConveyorPlayer();
+            conveyorPlayer.init(d, room_side);
+        }
     }
 
     // setup function called once to generate initial player locations
     // note the dance caller does not know any player-player relationships, so order doesn't really matter in the Point[] you return. Just make sure your player is consistent with the indexing
 
     public Point[] generate_starting_locations() {
-        return snakePlayer.generate_starting_locations();
+        // TODO: Cleaner way of specifying active player.
+        if(d < CONVEYOR_THRESHOLD) {
+            return snakePlayer.generate_starting_locations();
+        } else {
+            return conveyorPlayer.generate_starting_locations();
+        }
     }
 
     // play function
@@ -40,7 +55,12 @@ public class Player implements sqdance.sim.Player {
     // partner_ids: index of the current dance partner. -1 if no dance partner
     // enjoyment_gained: integer amount (-5,0,3,4, or 6) of enjoyment gained in the most recent 6-second interval
     public Point[] play(Point[] dancers, int[] scores, int[] partner_ids, int[] enjoyment_gained) {
-        return snakePlayer.play(dancers, scores, partner_ids, enjoyment_gained);
+        if(d < CONVEYOR_THRESHOLD) {
+            return snakePlayer.play(dancers, scores, partner_ids, enjoyment_gained);
+        } else {
+            return conveyorPlayer.play(dancers, scores, partner_ids, enjoyment_gained);
+        }
+
     }
     
     private int total_enjoyment(int enjoyment_gained) {
