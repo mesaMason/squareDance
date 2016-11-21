@@ -135,12 +135,24 @@ public class ConveyorPlayer implements sqdance.sim.Player {
             destinations[curr] = snake[nextPosInSnake];
             newSnakeDancers.add(curr);
         }
+        destinations[0] = new Point(0.1, 0.1);
         snakeDancers = newSnakeDancers;
-        
 
         for (int i = 0; i < d; ++ i) {
             instructions[i] = direction(subtract(destinations[i], dancers[i]));
         }
+
+        // DEBUG
+        // for (int i = 0; i < scores.length; i++) {
+        //     if(scores[i] < 0) {
+        //         System.out.println("Bad dancer: " + i);
+        //     }
+        // }
+
+        // DEBUG
+        // System.out.println("Dancer 0: " + instructions[0].x + " " + instructions[0].y);
+        // System.out.println("Dancer 2: " + instructions[1].x + " " + instructions[1].y);
+
         mode = 0; // dance next turn
         return instructions;        
     }
