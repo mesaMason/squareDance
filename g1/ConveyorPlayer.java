@@ -141,11 +141,22 @@ public class ConveyorPlayer implements sqdance.sim.Player {
 
 
 
-        // snake along and update destinations
-        List<Integer> newSnakeDancers = new ArrayList<Integer>();
-        int curr = snakeDancers.get(snakeDancers.size() - 1); // move last one to beginning
-        destinations[curr] = snake[0];
-        newSnakeDancers.add(curr);
+        /* snake along and update destinations
+           The snakeDancers List is a mapping from snake indicies to dancers. 
+           The index of snakeDancers contains the dancer at that index in the 
+           snake. 
+           
+           Example: snakeDancers.get(42) returns the index in snake where 
+           the dancer id 42 is. If snakeDancers.get(42) returns 5, then 
+           snake[5] contains the *position* on the grid where dancer 42 
+           should be.
+           
+           The snakeDancers List must be updated every time dancers move
+         */
+        List<Integer> newSnakeDancers = new ArrayList<Integer>(); // new mapping for snake indexes to dancers
+        int curr = snakeDancers.get(snakeDancers.size() - 1); // get the dancer id of the dancer at the end of snake
+        destinations[curr] = snake[0]; // make that dancer move from end position of snake to beginning position of snake
+        newSnakeDancers.add(curr); // begin updating snakeDancers to reflect the new snake mappings
         for (int i = 0; i < snakeDancers.size()-1; i++) {
             curr = snakeDancers.get(i);
             int nextPosInSnake = i + 1;
