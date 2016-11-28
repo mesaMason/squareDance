@@ -249,8 +249,8 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     private Point getVector(Point a, Point b) {
         Point diff = new Point(a.x - b.x, a.y - b.y);
         double hypot = Math.hypot(diff.x, diff.y);
-        if (hypot >= 2) {
-            diff = new Point(diff.x/hypot * 2, diff.y/hypot * 2);
+        if (hypot >= 1.999) {
+            diff = new Point(diff.x/hypot * 1.999, diff.y/hypot * 1.999);
         }
         return diff;
     }    
