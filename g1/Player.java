@@ -22,7 +22,7 @@ public class Player implements sqdance.sim.Player {
     SnakePlayer snakePlayer;
     ConveyorPlayer conveyorPlayer;
 
-    public final int CONVEYOR_THRESHOLD = 1500;
+    public final int CONVEYOR_THRESHOLD = 1600;
     
     // init function called once with simulation parameters before anything else is called
     public void init(int d, int room_side) {

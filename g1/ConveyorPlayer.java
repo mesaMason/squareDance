@@ -9,6 +9,9 @@ public class ConveyorPlayer implements sqdance.sim.Player {
 
     // globals
     private Point[][] grid;
+    private boolean[][] pairGrid; // grid of pairs, 20x40, true means that pair is being used as a conveyor
+    private int pairGridCols = 20;
+    private int pairGridRows = 40;
     private Point[][] conveyor_rows;
     private int gridCols = 0; // number of columns (must be even number...)
     private int gridRows = 0; // number of pairs per column
@@ -21,8 +24,9 @@ public class ConveyorPlayer implements sqdance.sim.Player {
 
     // constants
     private final double GRID_GAP = 0.5001; // distance between grid points
-    private final double GRID_OFFSET_X = 0.4; // offset of entire grid from 0,0
-    private final double GRID_OFFSET_Y = 0.4;
+    private final double GRID_OFFSET_X = 0.2; // offset of entire grid from 0,0
+    private final double GRID_OFFSET_Y = 0.2;
+    private final double CONVEYOR_GAP = 0.11; // distance between points within a conveyor
     
     // E[i][j]: the remaining enjoyment player j can give player i
     // -1 if the value is unknown (everything unknown upon initialization)
@@ -42,36 +46,29 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     public void init(int d, int room_side) {
         this.d = d;
         this.room_side = (double) room_side;
+
+        // create grid of pairs
+        pairGrid = new boolean[pairGridCols][pairGridRows];
+        for (int i = 0; i < pairGridCols; i++) {
+            for (int j = 0; j < pairGridRows; j++) {
+                pairGrid[i][j] = false;
+            }
+        }
         
         // create the grid
         double side = room_side / GRID_GAP;
-        gridCols = (int) side;
-        if ((gridCols % 2) == 1) {
-            gridCols--;
-        }
-        gridRows = (int) side;
+        gridCols = (int) side + 1; 
+        gridRows = (int) side + 1;
 
-        grid = new Point[gridCols][gridRows];
-        conveyor_rows = new Point[gridCols*DANCERS_PER_CONVEYOR][gridRows];
+        grid = new Point[gridCols][gridRows]; // this should be 40x40
         for (int i = 0; i < gridCols; i++) {
             for (int j = 0; j < gridRows; j++) {
-
-                if(j % CONVEYOR_FREQUENCY == 0) {
-                    double gridX = GRID_OFFSET_X + i * GRID_GAP;
-                    double gridY = GRID_OFFSET_Y + j * GRID_GAP;
-                    grid[i][j] = new Point(gridX, gridY);
-                    for (int k = 0; k < DANCERS_PER_CONVEYOR; k++) {
-                        conveyor_rows[i*DANCERS_PER_CONVEYOR + k][j] = new Point(gridX + (k*(GRID_GAP/DANCERS_PER_CONVEYOR)), gridY);
-                    }
-                } else {
-                    double gridX = GRID_OFFSET_X + i * GRID_GAP;
-                    double gridY = GRID_OFFSET_Y + j * GRID_GAP;
-                    if ((i % 2) == 1) {
-                        gridX -= 0.00001;
-                    }
-                    grid[i][j] = new Point(gridX, gridY);
+                double gridX = GRID_OFFSET_X + i * GRID_GAP;
+                double gridY = GRID_OFFSET_Y + j * GRID_GAP;
+                if ((i % 2) == 1) {
+                    gridX -= 0.00001;
                 }
-                
+                grid[i][j] = new Point(gridX, gridY);
             }
         }
 
@@ -147,7 +144,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 }
             }
 
-            if (play_counter <= 10 || is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained)) {
+            if (play_counter <= 20 || is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained)) {
                 play_counter += 1;
                 return instructions;
             } else {
@@ -204,54 +201,92 @@ public class ConveyorPlayer implements sqdance.sim.Player {
 
     // creates a new array of points that consist of a snake of numDancers length
     private Point[] createSnake(int numDancers) {
+        /* keep 40x40 grid, but replace pairs of dancers with a conveyor 
+           of 4, evenly distributed
+        */
         Point[] newSnake = new Point[numDancers];
-        int numOutbound = numDancers / 2;
+        int numExcess = numDancers - 1600;
+        int numPairsToReplace = numExcess / 2; // number of pair spots to replace with a conveyor of 4
+        int conveyorInterval = 800 / numPairsToReplace;
 
+        // set pairs in pairGrid to true to change them into conveyor spots
+        int count = 0;
+        for (int i = 0; i < pairGridCols; i++) {
+            for (int j = 0; j < pairGridRows; j++) {
+                int currPair = i * pairGridRows + j;
+                if (currPair % conveyorInterval == 0) {
+                    pairGrid[i][j] = true;
+                    count++;
+                }
+            }
+        }
+        
         boolean outbound = true;
+        int numOutbound = numDancers / 2;
         int x = 0, y = 0, dx = 0, dy = 1;
-        int k = 0;
+        int k = 0, pairX = 0, pairY = 0;
+        int conveyorCounter = 0;
+        int MAX_CONVEYOR = 2;
         for (int dancer = 0; dancer < numDancers; dancer++) {
-            if(y % CONVEYOR_FREQUENCY == 0) {
-                if(outbound) {
-                    newSnake[dancer] = new Point(conveyor_rows[x*DANCERS_PER_CONVEYOR+k][y].x, conveyor_rows[x*DANCERS_PER_CONVEYOR+k][y].y);
+            if (pairGrid[pairX][pairY]) {
+                // this is a pair spot that should be used as a conveyor
+                if (outbound) {
+                    newSnake[dancer] = new Point(grid[x][y].x + conveyorCounter * CONVEYOR_GAP,
+                                                 grid[x][y].y);
                 }
                 else {
-                    newSnake[dancer] = new Point(conveyor_rows[x*DANCERS_PER_CONVEYOR+k][y].x, conveyor_rows[x*DANCERS_PER_CONVEYOR+k][y].y);
+                    newSnake[dancer] = new Point(grid[x][y].x - conveyorCounter * CONVEYOR_GAP,
+                                                 grid[x][y].y);
                 }
-                k++;
-
-            } else {
+                conveyorCounter++;
+                conveyorCounter %= MAX_CONVEYOR;
+            }
+            else {
+                // normal pair spot, not a conveyor spot
                 newSnake[dancer] = new Point(grid[x][y].x, grid[x][y].y);
             }
-            
-            if((y % CONVEYOR_FREQUENCY != 0) || (k >= DANCERS_PER_CONVEYOR)) {
-                k = 0;
-                if (outbound) {
-                    if (dancer == numOutbound - 1) {
-                        // last outbound dancer, start snaking back
-                        outbound = false;
-                        x += 1;
-                        dy *= -1;
-                    }
-                    else if (((y + dy) >= gridRows) || ((y + dy) < 0) ) {
-                        // reached end of column, start next column
-                        x += 2;
-                        dy *= -1;
-                    }
-                    else {
-                        y += dy;
-                    }
+
+            if (conveyorCounter != 0) {
+                // if still making a conveyor, don't snake along the grid
+                continue;
+            }
+
+            /* As we iterate through the dancers, need to keep track of:
+                - current x, y within the grid. This gives the Point location of the dancer.
+                - current pairX, pairY within the pairGrid. This tells you whether that dancer
+                  is in a conveyor spot or not
+             */
+            if (outbound) {
+                if (dancer == numOutbound - 1) {
+                    // last outbound dancer, start snaking back.
+                    // note that pairGrid coords don't change
+                    outbound = false;
+                    x += 1;
+                    dy *= -1;
                 }
-                else { // inbound
-                    if (((y + dy) >= gridRows) || ((y + dy) < 0)) {
-                        x -= 2;
-                        dy *= -1;
-                    }
-                    else {
-                        y += dy;
-                    }
+                else if (((y + dy) >= gridRows) || ((y + dy) < 0) ) {
+                    // reached end of column, start next column
+                    x += 2;
+                    dy *= -1;
+                    pairX++;
+                }
+                else {
+                    y += dy;
+                    pairY += dy;
                 }
             }
+            else { // inbound
+                if (((y + dy) >= gridRows) || ((y + dy) < 0)) {
+                    x -= 2;
+                    dy *= -1;
+                    pairX--;
+                }
+                else {
+                    y += dy;
+                    pairY += dy;
+                }
+            }
+
         } // end for loop through dancers
         return newSnake;
     }
