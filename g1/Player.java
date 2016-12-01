@@ -21,6 +21,7 @@ public class Player implements sqdance.sim.Player {
     // players
     SnakePlayer snakePlayer;
     ConveyorPlayer conveyorPlayer;
+    OldConveyorPlayer ocPlayer;
 
     public final int CONVEYOR_THRESHOLD = 1880; // any more than this and use the conveyorSnake
     
@@ -31,6 +32,17 @@ public class Player implements sqdance.sim.Player {
         if(d <= CONVEYOR_THRESHOLD) {
             snakePlayer = new SnakePlayer();
             snakePlayer.init(d, room_side);
+        } else if (d == 2200 || d == 2400 || d == 2600 || d == 2800) {
+            ocPlayer = new OldConveyorPlayer();
+            if(d > 2400) {
+                ocPlayer.dancers_per_conveyor = 4;
+                ocPlayer.init(d, room_side);    
+            } else {
+                ocPlayer.dancers_per_conveyor = 3;
+                ocPlayer.init(d, room_side);
+            }
+
+            
         } else {
             conveyorPlayer = new ConveyorPlayer();
             conveyorPlayer.init(d, room_side);
@@ -44,6 +56,8 @@ public class Player implements sqdance.sim.Player {
         // TODO: Cleaner way of specifying active player.
         if(d <= CONVEYOR_THRESHOLD) {
             return snakePlayer.generate_starting_locations();
+        } else if (d == 2200 || d == 2400 || d == 2600 || d == 2800) {
+            return ocPlayer.generate_starting_locations();
         } else {
             return conveyorPlayer.generate_starting_locations();
         }
@@ -57,6 +71,8 @@ public class Player implements sqdance.sim.Player {
     public Point[] play(Point[] dancers, int[] scores, int[] partner_ids, int[] enjoyment_gained) {
         if(d <= CONVEYOR_THRESHOLD) {
             return snakePlayer.play(dancers, scores, partner_ids, enjoyment_gained);
+        } else if (d == 2200 || d == 2400 || d == 2600 || d == 2800) {
+            return ocPlayer.play(dancers, scores, partner_ids, enjoyment_gained);
         } else {
             return conveyorPlayer.play(dancers, scores, partner_ids, enjoyment_gained);
         }

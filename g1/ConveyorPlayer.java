@@ -28,6 +28,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     private final double GRID_OFFSET_Y = 0.2;
     private final double CONVEYOR_GAP = 0.10002; // distance between points within a conveyor
     private final int SCALING_SNAKE_THRESHOLD = 2400; // for d > this and use scaling snake instead of createSnake
+    private final boolean LSD_OPTIMIZATION = false; // optimize for lowest scoring dancer
     
     // E[i][j]: the remaining enjoyment player j can give player i
     // -1 if the value is unknown (everything unknown upon initialization)
@@ -151,7 +152,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 }
             }
 
-            if (play_counter <= 20 || is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained)) {
+            if (play_counter <= 5 || (LSD_OPTIMIZATION && is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained))) {
                 play_counter += 1;
                 return instructions;
             } else {
