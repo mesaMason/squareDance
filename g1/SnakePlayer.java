@@ -24,9 +24,11 @@ public class SnakePlayer implements sqdance.sim.Player {
     private int turnCounter = 0;
     
     // constants
-    private final double GRID_GAP = 0.5001; // distance between grid points
-    private final double GRID_OFFSET_X = 0.4; // offset of entire grid from 0,0
-    private final double GRID_OFFSET_Y = 0.4;
+    private final double GRID_GAP_X = 0.5001; // distance between grid columns
+    private final double GRID_GAP_Y = GRID_GAP_X * Math.sqrt(3)/2; // distance between grid rows
+    private final double GRID_ODD_OFFSET = GRID_GAP_X / 2; // offset odd rows by this much X for hexagonal pattern
+    private final double GRID_OFFSET_X = 0.0000001; // offset of entire grid from 0,0
+    private final double GRID_OFFSET_Y = 0.0000001;
     private final int SOULMATE_OPTION_THRESHOLD = 609; // use soulmate matching strategy if d <= this - this is 609 when f = 0.1
     
     // E[i][j]: the remaining enjoyment player j can give player i
@@ -56,18 +58,18 @@ public class SnakePlayer implements sqdance.sim.Player {
         activeFriends = new HashSet<Integer>();
         
         // create the grid
-        double side = room_side / GRID_GAP;
-        gridCols = (int) side;
-        if ((gridCols % 2) == 1) {
-            gridCols--;
-        }
-        gridRows = (int) side;
+        double side = room_side / GRID_GAP_X;
+        gridCols = (int) side + 1;
+        side = room_side / GRID_GAP_Y;
+        gridRows = (int) side + 1;
+        
         grid = new Point[gridCols][gridRows];
         occupied = new boolean[gridCols][gridRows];
         for (int i = 0; i < gridCols; i++) {
             for (int j = 0; j < gridRows; j++) {
-                double gridX = GRID_OFFSET_X + i * GRID_GAP;
-                double gridY = GRID_OFFSET_Y + j * GRID_GAP;
+                int even = j % 2;
+                double gridX = GRID_OFFSET_X + (even * GRID_ODD_OFFSET) + (i * GRID_GAP_X);
+                double gridY = GRID_OFFSET_Y + j * GRID_GAP_Y;
                 if ((i % 2) == 1) {
                     gridX -= 0.00001;
                 }
