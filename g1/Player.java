@@ -22,13 +22,13 @@ public class Player implements sqdance.sim.Player {
     SnakePlayer snakePlayer;
     ConveyorPlayer conveyorPlayer;
 
-    public final int CONVEYOR_THRESHOLD = 1880;
+    public final int CONVEYOR_THRESHOLD = 1880; // any more than this and use the conveyorSnake
     
     // init function called once with simulation parameters before anything else is called
     public void init(int d, int room_side) {
         this.d = d;
         this.room_side = room_side;
-        if(d < CONVEYOR_THRESHOLD) {
+        if(d <= CONVEYOR_THRESHOLD) {
             snakePlayer = new SnakePlayer();
             snakePlayer.init(d, room_side);
         } else {
@@ -42,7 +42,7 @@ public class Player implements sqdance.sim.Player {
 
     public Point[] generate_starting_locations() {
         // TODO: Cleaner way of specifying active player.
-        if(d < CONVEYOR_THRESHOLD) {
+        if(d <= CONVEYOR_THRESHOLD) {
             return snakePlayer.generate_starting_locations();
         } else {
             return conveyorPlayer.generate_starting_locations();
@@ -55,7 +55,7 @@ public class Player implements sqdance.sim.Player {
     // partner_ids: index of the current dance partner. -1 if no dance partner
     // enjoyment_gained: integer amount (-5,0,3,4, or 6) of enjoyment gained in the most recent 6-second interval
     public Point[] play(Point[] dancers, int[] scores, int[] partner_ids, int[] enjoyment_gained) {
-        if(d < CONVEYOR_THRESHOLD) {
+        if(d <= CONVEYOR_THRESHOLD) {
             return snakePlayer.play(dancers, scores, partner_ids, enjoyment_gained);
         } else {
             return conveyorPlayer.play(dancers, scores, partner_ids, enjoyment_gained);
