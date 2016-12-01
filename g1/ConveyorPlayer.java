@@ -24,11 +24,12 @@ public class ConveyorPlayer implements sqdance.sim.Player {
 
     // constants
     private final double GRID_GAP = 0.5001; // distance between grid points
-    private final double GRID_OFFSET_X = 0.2; // offset of entire grid from 0,0
-    private final double GRID_OFFSET_Y = 0.2;
-    private final double CONVEYOR_GAP = 0.10002; // distance between points within a conveyor
+    private final double GRID_OFFSET_X = 0.00000000001; // offset of entire grid from 0,0
+    private final double GRID_OFFSET_Y = 0.00000000001;
+    private final double CONVEYOR_GAP = 0.1000000001; // distance between points within a conveyor
     private final int SCALING_SNAKE_THRESHOLD = 2400; // for d > this and use scaling snake instead of createSnake
     private final boolean LSD_OPTIMIZATION = false; // optimize for lowest scoring dancer
+    private final int DANCE_TURNS = 10; // number of turns to dance before move
     
     // E[i][j]: the remaining enjoyment player j can give player i
     // -1 if the value is unknown (everything unknown upon initialization)
@@ -148,11 +149,11 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                     double badY = snake[currBad].y;
                     double actualX = dancers[i].x;
                     double actualY = dancers[i].y;
-                    System.out.println("Bad dancer: " + i + " at (" + badX + ", " + badY + "). ACTUAL: (" + actualX + ", " + actualY + ")");
+                    //System.out.println("Bad dancer: " + i + " at (" + badX + ", " + badY + "). ACTUAL: (" + actualX + ", " + actualY + ")");
                 }
             }
 
-            if (play_counter <= 5 || (LSD_OPTIMIZATION && is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained))) {
+            if (play_counter <= DANCE_TURNS || (LSD_OPTIMIZATION && is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained))) {
                 play_counter += 1;
                 return instructions;
             } else {
@@ -226,17 +227,17 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         int x = 0, y = 0, dx = 0, dy = 1;
         int k = 0, pairX = 0, pairY = 0, pairCount = 0;
         int maxPairCount = (numDancers - numPairsToReplace * 2) / 2; // length of the snake, in pairs (conveyor counts as 1 pair)
+        int replacedPairs = 0; // counter of replaced pairs
         int conveyorCounter = 0;
         int MAX_CONVEYOR = 2;
         for (int dancer = 0; dancer < numDancers; dancer++) {
-            if (pairCount % conveyorInterval == 0 && pairCount < maxPairCount) {
+            if (pairCount % conveyorInterval == 0
+                && replacedPairs < numPairsToReplace) {
                 // turns this pair spot into a conveyor spot
                 // this only needs to happen on the outbound, when the snake returns it will fill the rest
                 pairGrid[pairX][pairY] = true;
-
-                // edge case: don't start a new conveyor row if this dancer is the last outbound one
-                if (dancer == numOutbound - 1 && conveyorCounter == 0) {
-                    pairGrid[pairX][pairY] = false;
+                if (conveyorCounter == 0) {
+                    replacedPairs++;
                 }
             }
             
@@ -252,6 +253,17 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 }
                 conveyorCounter++;
                 conveyorCounter %= MAX_CONVEYOR;
+
+                if (outbound) {
+                    // need to make the turnaround check, in case it happens in the middle of the conveyor
+                    if (dancer == numOutbound - 1) {
+                        outbound = false;
+                        x += 1;
+                        dy *= -1;
+                        conveyorCounter = 0;
+                        continue;
+                    }
+                }                
             }
             else {
                 // normal pair spot, not a conveyor spot
@@ -314,9 +326,19 @@ public class ConveyorPlayer implements sqdance.sim.Player {
            of 4, evenly distributed
         */
         Point[] newSnake = new Point[numDancers];
-        int numExcess = numDancers - 1600;
-        int numPairsToReplace = numExcess / 2; // number of pair spots to replace with a conveyor of 4
-        int conveyorInterval = 800 / numPairsToReplace;
+
+        /* Calculate length of the conveyors
+           divide excess by number of spots for conveyors
+           if doesn't evenly divide, get lengths of "longer" and "shorter" conveyors (longer will be +1 length)
+           find out how many long vs short conveyors are needed
+         */
+        int numExcess = numDancers - 800; // # dancers in excess of how many can be dancing at one time
+        int numConveyorPairs = pairGridCols * pairGridRows; // total number of conveyor pair spots (40x20)
+        int conveyorLenShort = numExcess / numConveyorPairs; // divide and take ceil to get length of each short conveyor
+        int conveyorLenLong = conveyorLenShort + 1;
+        int excessShortConveyor = numExcess - conveyorLenShort * numConveyorPairs; // number remaining needed to distribute
+        int numShortConveyors = numConveyorPairs - excessShortConveyor;
+        int numLongConveyors = excessShortConveyor;
 
         // assign rows on grid to be conveyor rows
         for (int i = 0; i < pairGridCols; i++) {
@@ -328,42 +350,28 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         }
 
         boolean outbound = true;
-        int numOutbound = numDancers / 2;
+        int numOutboundPairs = pairGridCols * pairGridRows;
         int x = 0, y = 0, dx = 0, dy = 1;
         int k = 0, pairX = 0, pairY = 0, pairCount = 0;
-        int maxPairCount = (numDancers - numPairsToReplace * 2) / 2; // length of the snake, in pairs (conveyor counts as 1 pair)
-        int conveyorCounter = 0;
-        int MAX_CONVEYOR = 5;
+        int conveyorCounter = 0; // counter: dancers placed in current conveyor
+        int placedInConveyor = 0; // counter: total dancers placed in all conveyors so far
+        int currConveyor = 0; // counter: the number of conveyors placed so far
+        int CONVEYOR_ROW_LEN = 5; // used when above 4800 dancers when conveyors can be multi row
         for (int dancer = 0; dancer < numDancers; dancer++) {
             if (pairGrid[pairX][pairY]) {
                 // this is a pair spot that should be used as a conveyor
-                // edge case: last column, the conveyor is smaller
-                if (pairX == pairGridCols - 1) {
-                    MAX_CONVEYOR = 3;
-                    if (outbound) {
-                        newSnake[dancer] = new Point(grid[x][y].x + conveyorCounter * CONVEYOR_GAP, grid[x][y].y);                    
-                    }
-                    else {
-                        newSnake[dancer] = new Point(grid[x][y].x - conveyorCounter * CONVEYOR_GAP, grid[x][y].y);
-                    }
+                newSnake[dancer] = new Point(grid[x][y].x + conveyorCounter * CONVEYOR_GAP, grid[x][y].y);
+                conveyorCounter++;
+                if (currConveyor < numLongConveyors) {
+                    conveyorCounter %= conveyorLenLong;
                 }
                 else {
-                    MAX_CONVEYOR = 5;                    
-                    newSnake[dancer] = new Point(grid[x][y].x + conveyorCounter * CONVEYOR_GAP, grid[x][y].y);
+                    conveyorCounter %= conveyorLenShort;
                 }
-
-                conveyorCounter++;
-                conveyorCounter %= MAX_CONVEYOR;
-
-                if (outbound) {
-                    // need to make the turnaround check, in case it happens in the middle of the conveyor
-                    if (dancer == numOutbound - 1) {
-                        outbound = false;
-                        x += 1;
-                        dy *= -1;
-                        conveyorCounter = 0;
-                        continue;
-                    }
+                //conveyorCounter %= CONVEYOR_ROW_LEN;
+                
+                if (conveyorCounter == 0) {
+                    currConveyor++;
                 }
             }
             else {
@@ -382,7 +390,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                   is in a conveyor spot or not
              */
             if (outbound) {
-                if (dancer == numOutbound - 1) {
+                if (pairCount == numOutboundPairs - 1) {
                     // last outbound dancer, start snaking back.
                     // note that pairGrid coords don't change
                     outbound = false;
