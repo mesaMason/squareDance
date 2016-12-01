@@ -39,9 +39,6 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     private int d = -1;
     private double room_side = -1;
 
-    private final int DANCERS_PER_CONVEYOR = 4;
-    private final int CONVEYOR_FREQUENCY = 3;
-
     // init function called once with simulation parameters before anything else is called
     public void init(int d, int room_side) {
         this.d = d;
@@ -209,25 +206,20 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         int numPairsToReplace = numExcess / 2; // number of pair spots to replace with a conveyor of 4
         int conveyorInterval = 800 / numPairsToReplace;
 
-        // set pairs in pairGrid to true to change them into conveyor spots
-        int count = 0;
-        for (int i = 0; i < pairGridCols; i++) {
-            for (int j = 0; j < pairGridRows; j++) {
-                int currPair = i * pairGridRows + j;
-                if (currPair % conveyorInterval == 0) {
-                    pairGrid[i][j] = true;
-                    count++;
-                }
-            }
-        }
-        
         boolean outbound = true;
         int numOutbound = numDancers / 2;
         int x = 0, y = 0, dx = 0, dy = 1;
-        int k = 0, pairX = 0, pairY = 0;
+        int k = 0, pairX = 0, pairY = 0, pairCount = 0;
+        int maxPairCount = (numDancers - numPairsToReplace * 2) / 2; // length of the snake, in pairs (conveyor counts as 1 pair)
         int conveyorCounter = 0;
         int MAX_CONVEYOR = 2;
         for (int dancer = 0; dancer < numDancers; dancer++) {
+            if (pairCount % conveyorInterval == 0 && pairCount < maxPairCount) {
+                // set pair spots as conveyor spots as the snake moves outbound
+                // this only needs to happen on the outbound, when the snake returns it will fill the rest
+                pairGrid[pairX][pairY] = true;
+            }
+            
             if (pairGrid[pairX][pairY]) {
                 // this is a pair spot that should be used as a conveyor
                 if (outbound) {
@@ -269,10 +261,12 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                     x += 2;
                     dy *= -1;
                     pairX++;
+                    pairCount++;
                 }
                 else {
                     y += dy;
                     pairY += dy;
+                    pairCount++;                    
                 }
             }
             else { // inbound
@@ -280,10 +274,12 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                     x -= 2;
                     dy *= -1;
                     pairX--;
+                    pairCount++;
                 }
                 else {
                     y += dy;
                     pairY += dy;
+                    pairCount++;
                 }
             }
 
