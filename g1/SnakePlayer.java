@@ -82,6 +82,21 @@ public class SnakePlayer implements sqdance.sim.Player {
         snake = createSnake(d);
     }
 
+    private int find_lowest_scoring_dancer(int[] scores) {
+        int min_val = scores[0];
+        int min_index = 0;
+        for(int i = 1; i < scores.length; ++i) {
+            if (scores[i] < min_val) {
+                min_index = i;
+            }
+        }
+        return min_index;
+    }
+
+    private boolean is_lowest_scoring_dancer_scoring_bigly(int[] scores, int[] enjoyment_gained) {
+        return enjoyment_gained[find_lowest_scoring_dancer(scores)] > 3;
+    }
+
     // setup function called once to generate initial player locations
     // note the dance caller does not know any player-player relationships, so order doesn't really matter in the Point[] you return. Just make sure your player is consistent with the indexing
 

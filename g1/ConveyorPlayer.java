@@ -100,6 +100,25 @@ public class ConveyorPlayer implements sqdance.sim.Player {
 
     private int play_counter = 0;
 
+    private int find_lowest_scoring_dancer(int[] scores) {
+        int min_val = scores[0];
+        int min_index = 0;
+        for(int i = 1; i < scores.length; ++i) {
+            if (scores[i] < min_val) {
+                min_index = i;
+            }
+        }
+        return min_index;
+    }
+
+    private boolean is_lowest_scoring_dancer_scoring_bigly(int[] scores, int[] enjoyment_gained) {
+        return enjoyment_gained[find_lowest_scoring_dancer(scores)] > 3;
+    }
+
+    private boolean is_lowest_scoring_dancer_not_scoring(int[] scores, int[] enjoyment_gained) {
+        return enjoyment_gained[find_lowest_scoring_dancer(scores)] == 0;
+    }
+
     // play function
     // dancers: array of locations of the dancers
     // scores: cumulative score of the dancers
@@ -114,7 +133,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         // time to dance and collect points and data
         if (mode == 0) {
             // DEBUG
-            System.out.println("Turncounter = " + play_counter);
+            //System.out.println("Turncounter = " + play_counter);
             boolean foundBad = false;
             for (int i = 0; i < enjoyment_gained.length; i++) {
                 if(enjoyment_gained[i] < 0) {
@@ -127,9 +146,8 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                     System.out.println("Bad dancer: " + i + " at (" + badX + ", " + badY + "). ACTUAL: (" + actualX + ", " + actualY + ")");
                 }
             }
-            
 
-            if (play_counter <= 10) {
+            if (play_counter <= 10 || is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained)) {
                 play_counter += 1;
                 return instructions;
             } else {
