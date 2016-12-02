@@ -29,7 +29,7 @@ public class SnakePlayer implements sqdance.sim.Player {
     private final double GRID_ODD_OFFSET = GRID_GAP_X / 2; // offset odd rows by this much X for hexagonal pattern
     private final double GRID_OFFSET_X = 0.0000001; // offset of entire grid from 0,0
     private final double GRID_OFFSET_Y = 0.0000001;
-    private final int SOULMATE_OPTION_THRESHOLD = 609; // use soulmate matching strategy if d <= this - this is 609 when f = 0.1
+    private final int SOULMATE_OPTION_THRESHOLD = 601; // use soulmate matching strategy if d <= this - this is 609 when f = 0.1
     
     // E[i][j]: the remaining enjoyment player j can give player i
     // -1 if the value is unknown (everything unknown upon initialization)
@@ -56,6 +56,13 @@ public class SnakePlayer implements sqdance.sim.Player {
         }
 
         activeFriends = new HashSet<Integer>();
+
+        E = new int[d][d];
+        for (int i = 0; i < d; i++) {
+            for (int j = 0; j < d; j++) {
+                E[i][j] = i == j ? 0 : -1;
+            }
+        }
         
         // create the grid
         double side = room_side / GRID_GAP_X;
@@ -143,6 +150,17 @@ public class SnakePlayer implements sqdance.sim.Player {
         int numDancers = snakeDancers.size();
         for (int i = 0; i < d; i++) {
             instructions[i] = new Point(0, 0);
+
+            // update remaining available enjoyment
+            if (enjoyment_gained[i] > 0) {
+                int j = partner_ids[i];
+                if (E[i][j] == -1) {
+                    E[i][j] = total_enjoyment(enjoyment_gained[i]) - enjoyment_gained[i];
+                }
+                else {
+                    E[i][j] -= enjoyment_gained[i];
+                }
+            }
         }
 
         // time to dance and collect points and data
@@ -154,7 +172,8 @@ public class SnakePlayer implements sqdance.sim.Player {
         // 1-indexed because snakeDancers[0] is stationary
         for (int i = 1; i < numDancers; i++) {
             int curr = snakeDancers.get(i);
-            if (enjoyment_gained[curr] == 0) {
+            if (enjoyment_gained[curr] == 0
+                || E[curr][partner_ids[curr]] <= 80) {
                 activeFriends.remove(i);
             }
         }
@@ -185,7 +204,8 @@ public class SnakePlayer implements sqdance.sim.Player {
                     after2++;
                 }
                 if ((activeFriends.contains(before1) && activeFriends.contains(before2))
-                    || (activeFriends.contains(after1) && activeFriends.contains(after2))) {
+                    || (activeFriends.contains(after1) && activeFriends.contains(after2))
+                    || E[curr][partner_ids[curr]] <= 80) {
                     continue;
                 }
                 else {

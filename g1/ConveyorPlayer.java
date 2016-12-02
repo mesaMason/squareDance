@@ -22,7 +22,8 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     private int mode = 0; // 0: dance, 1: evaluate and make moves
     private Point[] destinations;
     private int conveyorLen = 0; // number of dancers per conveyor
-    
+    private int danceTurns = 10; // number of turns to dance before move
+
     // constants
     private final double GRID_GAP = 0.50000001; // distance between grid points
     private final double DANCE_EPSILON = 0.000000001; // distance to move so that pair will dance
@@ -31,7 +32,6 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     private final double CONVEYOR_GAP = 0.1000000001; // distance between points within a conveyor
     private final int SCALING_SNAKE_THRESHOLD = 2400; // for d > this and use scaling snake instead of createSnake
     private final boolean LSD_OPTIMIZATION = false; // optimize for lowest scoring dancer
-    private final int DANCE_TURNS = 10; // number of turns to dance before move
     
     // E[i][j]: the remaining enjoyment player j can give player i
     // -1 if the value is unknown (everything unknown upon initialization)
@@ -48,8 +48,6 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     public void init(int d, int room_side) {
         this.d = d;
         this.room_side = (double) room_side;
-
-
         
         // create the grid
         double side = room_side / GRID_GAP;
@@ -87,6 +85,19 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         else {
             snake = createSnake(d);
         }
+
+        // if d > 2400, solve for optimal number of turns to dance before move
+        int totalDanceTime = 0; // number of turns danced total for min scoring dancer
+        for (int i = 1; i < 21; i++) {
+            int candidate = getTotalDanceTurns(i, conveyorLen);
+            if (candidate > totalDanceTime) {
+                totalDanceTime = candidate;
+                danceTurns = i;
+            }
+        }
+        //        danceTurns = 10;
+        System.out.println("Optimal dance turns = " + danceTurns + ". (conveyorLen = "
+                           + conveyorLen + ")");
     }
 
     // setup function called once to generate initial player locations
@@ -155,7 +166,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 }
             }
 
-            if (play_counter <= DANCE_TURNS || (LSD_OPTIMIZATION && is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained))) {
+            if (play_counter < danceTurns || (LSD_OPTIMIZATION && is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained))) {
                 play_counter += 1;
                 return instructions;
             } else {
@@ -164,8 +175,6 @@ public class ConveyorPlayer implements sqdance.sim.Player {
             }
             return instructions;
         }
-
-
 
         /* snake along and update destinations
            The snakeDancers List is a mapping from snake indicies to dancers. 
@@ -194,8 +203,6 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         for (int i = 0; i < d; ++ i) {
             instructions[i] = getVector(destinations[i], dancers[i]);            
         }
-
-
 
         mode = 0; // dance next turn
         return instructions;        
@@ -520,6 +527,23 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         return newSnake;
     }
 
+    /* solver to find how many total turns of dancing a dancer will get,
+       over the course of 3 hours as a function of the queue length 
+       (how many dancers in front of it in line) and the dance to move ratio
+       calculation: 
+         interval = queueLen * numTurnsDancing + 1 for a dancer at the queueLen'th
+         position in the queue to get to the dance spot. Then + numTurnsDancing to 
+         finish dancing its time before moving off the spot
+         
+         divide total number of turns in dance by the interval, get the floor, to
+         get the number of intervals of dancing. Multiply by number of dance turns
+         per interval to get total dance turn count.
+     */
+    private int getTotalDanceTurns(int numTurnsDancing, int queueLen) {
+        int interval = queueLen * (numTurnsDancing + 1) + numTurnsDancing + 1;
+        int numIntervals = 1800 / interval;
+        return numIntervals * numTurnsDancing;
+    }
     
     private Point subtract(Point a, Point b) {
         return new Point(a.x - b.x, a.y - b.y);
