@@ -178,7 +178,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 play_counter = 0;
                 mode = 1;
             }
-            return instructions;
+
         }
 
         /* snake along and update destinations
