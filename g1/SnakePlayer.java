@@ -141,7 +141,10 @@ public class SnakePlayer implements sqdance.sim.Player {
             double avgFriends = totalFriends / d;
             double estFriendRatio = avgFriends / (NUM_TURNS_SAMPLE / 2);
             double friendRatio = 0;
-            if (estFriendRatio <= 0.375) {
+            if (estFriendRatio <= 0.001) {
+                friendRatio = 0;
+            }
+            else if (estFriendRatio <= 0.375) {
                 friendRatio = 0.25;
             }
             else if (estFriendRatio <= 0.675) {
