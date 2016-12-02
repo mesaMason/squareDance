@@ -22,6 +22,7 @@ public class SnakePlayer implements sqdance.sim.Player {
     private boolean findFriendsOption = false;
     private Set<Integer> activeFriends; // which spots on the snake are currently paired
     private int turnCounter = 0;
+    private int[] friendCount;
     
     // constants
     private final double GRID_GAP_X = 0.5001; // distance between grid columns
@@ -29,7 +30,8 @@ public class SnakePlayer implements sqdance.sim.Player {
     private final double GRID_ODD_OFFSET = GRID_GAP_X / 2; // offset odd rows by this much X for hexagonal pattern
     private final double GRID_OFFSET_X = 0.0000001; // offset of entire grid from 0,0
     private final double GRID_OFFSET_Y = 0.0000001;
-    private final int SOULMATE_OPTION_THRESHOLD = 601; // use soulmate matching strategy if d <= this - this is 609 when f = 0.1
+    private final int SOULMATE_OPTION_THRESHOLD = 601; // dynamically set by sampling friends
+    private final int NUM_TURNS_SAMPLE = 20; // # of turns at the beginning to use to sample friend %
     
     // E[i][j]: the remaining enjoyment player j can give player i
     // -1 if the value is unknown (everything unknown upon initialization)
@@ -47,18 +49,12 @@ public class SnakePlayer implements sqdance.sim.Player {
         this.d = d;
         this.room_side = (double) room_side;
 
-        // choose type of player: find soulmate or friends
-        if (d <= SOULMATE_OPTION_THRESHOLD) {
-            findSoulmateOption = true;
-        }
-        else {
-            findFriendsOption = true;
-        }
-
         activeFriends = new HashSet<Integer>();
 
         E = new int[d][d];
+        friendCount = new int[d];
         for (int i = 0; i < d; i++) {
+            friendCount[i] = 0;
             for (int j = 0; j < d; j++) {
                 E[i][j] = i == j ? 0 : -1;
             }
@@ -129,7 +125,43 @@ public class SnakePlayer implements sqdance.sim.Player {
     // enjoyment_gained: integer amount (-5,0,3,4, or 6) of enjoyment gained in the most recent 6-second interval
     public Point[] play(Point[] dancers, int[] scores, int[] partner_ids, int[] enjoyment_gained) {
         turnCounter++;
-        
+
+        if (turnCounter < NUM_TURNS_SAMPLE) {
+            // turn 1 - 9, sample friend %
+            return sampleFriendsPlay(dancers, scores, partner_ids, enjoyment_gained);
+        }
+
+        if (turnCounter == NUM_TURNS_SAMPLE) {
+            // dynamically decide on findSoulmate or findFriends strategy based on
+            // sampled friend % and d
+            double totalFriends = 0.0;
+            for (int i = 0; i < d; i++) {
+                totalFriends += friendCount[i];
+            }
+            double avgFriends = totalFriends / d;
+            double estFriendRatio = avgFriends / (NUM_TURNS_SAMPLE / 2);
+            double friendRatio = 0;
+            if (estFriendRatio <= 0.375) {
+                friendRatio = 0.25;
+            }
+            else if (estFriendRatio <= 0.675) {
+                friendRatio = 0.5;
+            }
+            else {
+                friendRatio = 0.75;
+            }
+            double estScoreSoulmates = (1800 - 2*d) * 6 + (d * 3);
+            double estScoreFriends = (1700 * friendRatio * 4) + (1700 * (1-friendRatio) * 3);
+            if (estScoreSoulmates >= estScoreFriends) {
+                findSoulmateOption = true;
+                System.out.println("avgFriends = " + avgFriends + ", estF = " + estFriendRatio + ", f = " + friendRatio + ", estSoulmateScore = " + estScoreSoulmates + ", estFriendsScore = " + estScoreFriends + ", using finding soulmates strategy");
+            }
+            else {
+                findFriendsOption = true;
+                System.out.println("avgFriends = " + avgFriends + ", estF = " + estFriendRatio + ", f = " + friendRatio + ", estSoulmateScore = " + estScoreSoulmates + ", estFriendsScore = " + estScoreFriends + ", using finding friends strategy");
+            }
+        }
+
         if (findSoulmateOption) {
             return findSoulmatePlay(dancers, scores, partner_ids, enjoyment_gained);
         }
@@ -349,6 +381,49 @@ public class SnakePlayer implements sqdance.sim.Player {
         return instructions;        
     }
     
+    private Point[] sampleFriendsPlay(Point[] dancers, int[] scores, int[] partner_ids, int[] enjoyment_gained) {
+        Point[] instructions = new Point[d];
+        int numDancers = snakeDancers.size();
+        for (int i = 0; i < d; i++) {
+            instructions[i] = new Point(0, 0);
+        }
+
+        if (turnCounter % 2 != 0) {
+            // stop to dance every other turn to sample
+            return instructions;
+        }
+
+        // sample friends
+        for (int i = 0; i < d; i++) {
+            int enjoyment = enjoyment_gained[i];
+            if (enjoyment == 4) {
+                friendCount[i]++;
+            }
+        }
+        
+        // snake along
+        List<Integer> newSnakeDancers = new ArrayList<Integer>(numDancers);
+        for (int i = 0; i < numDancers; i++) {
+            newSnakeDancers.add(i);
+        }
+        newSnakeDancers.set(0, snakeDancers.get(0));
+        for (int i = 1; i < numDancers; i++) {
+            int curr = snakeDancers.get(i);
+            int nextIndex = (i + 1) % numDancers;
+            if (nextIndex == 0) {
+                nextIndex++;
+            }
+            newSnakeDancers.set(nextIndex, curr);
+            destinations[curr] = snake[nextIndex];
+        }
+        snakeDancers = newSnakeDancers;
+        for (int i = 0; i < d; i++) {
+            instructions[i] = getVector(destinations[i], dancers[i]);
+        }
+
+        return instructions;
+    }
+
     private int total_enjoyment(int enjoyment_gained) {
 	switch (enjoyment_gained) {
 	case 3: return 60; // stranger
