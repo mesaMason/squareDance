@@ -22,6 +22,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     private int mode = 0; // 0: dance, 1: evaluate and make moves
     private Point[] destinations;
     private int conveyorLen = 0; // number of dancers per conveyor
+    private int calcDanceTurns = 0; // calculated optimal number of dance turns, for d >= 2400
     private int danceTurns = 10; // number of turns to dance before move
 
     // constants
@@ -87,17 +88,18 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         }
 
         // if d > 2400, solve for optimal number of turns to dance before move
-        int totalDanceTime = 0; // number of turns danced total for min scoring dancer
-        for (int i = 1; i < 21; i++) {
-            int candidate = getTotalDanceTurns(i, conveyorLen);
-            if (candidate > totalDanceTime) {
-                totalDanceTime = candidate;
-                danceTurns = i;
+        if (d > SCALING_SNAKE_THRESHOLD) {
+            int totalDanceTime = 0; // number of turns danced total for min scoring dancer
+            for (int i = 1; i < 21; i++) {
+                int candidate = getTotalDanceTurns(i, conveyorLen);
+                if (candidate > totalDanceTime) {
+                    totalDanceTime = candidate;
+                    calcDanceTurns = i;
+                }
             }
+            System.out.println("Optimal dance turns = " + calcDanceTurns + ". (conveyorLen = "
+                               + conveyorLen + ")");
         }
-        //        danceTurns = 10;
-        System.out.println("Optimal dance turns = " + danceTurns + ". (conveyorLen = "
-                           + conveyorLen + ")");
     }
 
     // setup function called once to generate initial player locations
@@ -166,6 +168,9 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 }
             }
 
+            if (d > SCALING_SNAKE_THRESHOLD) {
+                danceTurns = calcDanceTurns;
+            }
             if (play_counter < danceTurns || (LSD_OPTIMIZATION && is_lowest_scoring_dancer_scoring_bigly(scores, enjoyment_gained))) {
                 play_counter += 1;
                 return instructions;
