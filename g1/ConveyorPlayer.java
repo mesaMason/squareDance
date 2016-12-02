@@ -9,7 +9,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
 
     // globals
     private Point[][] grid;
-    private boolean[][] pairGrid; // grid of pairs, 20x40, true means that pair is being used as a conveyor
+    private int[][] pairGrid; // grid of pairs, 20x40, 0 if NOT a conveyor pair, otherwise int is number of rows in conveyor
     private int pairGridCols = 20;
     private int pairGridRows = 40;
     private Point[][] conveyor_rows;
@@ -23,7 +23,8 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     private Point[] destinations;
 
     // constants
-    private final double GRID_GAP = 0.5001; // distance between grid points
+    private final double GRID_GAP = 0.50000001; // distance between grid points
+    private final double DANCE_EPSILON = 0.000000001; // distance to move so that pair will dance
     private final double GRID_OFFSET_X = 0.00000000001; // offset of entire grid from 0,0
     private final double GRID_OFFSET_Y = 0.00000000001;
     private final double CONVEYOR_GAP = 0.1000000001; // distance between points within a conveyor
@@ -60,7 +61,7 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 double gridX = GRID_OFFSET_X + i * GRID_GAP;
                 double gridY = GRID_OFFSET_Y + j * GRID_GAP;
                 if ((i % 2) == 1) {
-                    gridX -= 0.00001;
+                    gridX -= DANCE_EPSILON;
                 }
                 grid[i][j] = new Point(gridX, gridY);
             }
@@ -69,10 +70,10 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         // create grid of pairs
         pairGridCols = gridCols / 2;
         pairGridRows = gridRows;
-        pairGrid = new boolean[pairGridCols][pairGridRows];
+        pairGrid = new int[pairGridCols][pairGridRows];
         for (int i = 0; i < pairGridCols; i++) {
             for (int j = 0; j < pairGridRows; j++) {
-                pairGrid[i][j] = false;
+                pairGrid[i][j] = 0;
             }
         }
         
@@ -235,13 +236,13 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 && replacedPairs < numPairsToReplace) {
                 // turns this pair spot into a conveyor spot
                 // this only needs to happen on the outbound, when the snake returns it will fill the rest
-                pairGrid[pairX][pairY] = true;
+                pairGrid[pairX][pairY] = 1;
                 if (conveyorCounter == 0) {
                     replacedPairs++;
                 }
             }
             
-            if (pairGrid[pairX][pairY]) {
+            if (pairGrid[pairX][pairY] > 0) {
                 // this is a pair spot that should be used as a conveyor
                 if (outbound) {
                     newSnake[dancer] = new Point(grid[x][y].x + conveyorCounter * CONVEYOR_GAP,
@@ -327,27 +328,106 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         */
         Point[] newSnake = new Point[numDancers];
 
+        /* if numDancers > 4800, conveyors need to have more than 1 row
+         */
+        if (numDancers > 4800) {
+            int numRowsInConveyor = 0;
+            int numDanceRows = 0;
+            for (int i = 2; i < 181; i++) { // 180 will result in 36k dancers
+                double rowWidth = i * CONVEYOR_GAP + 2 * GRID_GAP; // width of each dancing row + i conveyors
+                numDanceRows = (int)(room_side / rowWidth);
+                int dancersPerRow = i * 200 + 40;
+                int maxDancers = numDanceRows * dancersPerRow;
+                if (maxDancers >= numDancers) {
+                    numRowsInConveyor = i;
+                    break;
+                }
+            }
+            if (numRowsInConveyor == 0) {
+                System.out.println("Too many dancers for createScalingSnake to handle!");
+                System.exit(0);
+            }
+
+            /* remake grid, will look like below (example numRowsInConveyor == 3)
+               o-o--o-o--o-o--o-o-- conveyor0 row 1
+               -------------------- conveyor0 row 2
+               -------------------- conveyor0 row 3
+               * *  * *  * *  * *   dancer pairs row0
+               o-o--o-o--o-o--o-o-- conveyor1 row 1    |
+               -------------------- conveyor1 row 2    |--> this width will be 0.1 * 3 with 0.5 above/below
+               -------------------- conveyor1 row 3    |
+               * *  * *  * *  * *   dancer pairs row1            
+
+               * = dancing dancer
+               o = dancer spot on grid, but repurposed for conveyor, a conveyor dancer is here
+               - = conveyor dancer
+               note: width of each dancer spot on conveyor is 5 dancers
+
+               pairGrid to keep track of conveyor spots will look like:
+               [3][3][3][3][3] (3 is number of rows in conveyor)
+               [0][0][0][0][0]
+               [3][3][3][3][3]
+               [0][0][0][0][0]
+             */
+            gridRows = numDanceRows * 2;
+            grid = new Point[gridCols][gridRows];
+            for (int i = 0; i < gridCols; i++) {
+                for (int j = 0; j < gridRows; j++) {
+                    double gridX = GRID_OFFSET_X + i * GRID_GAP;
+                    if (i % 2 == 1) {
+                        gridX -= DANCE_EPSILON;
+                    }
+                    double gridY = 0;
+                    if ((j % 2) == 0) {
+                        gridY = (j/2) * (GRID_GAP*2 + CONVEYOR_GAP * numRowsInConveyor) + GRID_OFFSET_Y;
+                        grid[i][j] = new Point(gridX, gridY);
+                    }
+                    else {
+                        gridY = (j/2) * (GRID_GAP * 2 + CONVEYOR_GAP * numRowsInConveyor) + GRID_OFFSET_Y;
+                        gridY += GRID_GAP + CONVEYOR_GAP * numRowsInConveyor;
+                        grid[i][j] = new Point(gridX, gridY);
+                    }
+                }
+            }
+            
+            // recreate pairGrid and assign rows on pairGrid to be conveyor rows
+            pairGridRows = gridRows;
+            pairGrid = new int[pairGridCols][pairGridRows];
+            for (int i = 0; i < pairGridCols; i++) {
+                for (int j = 0; j < pairGridRows; j++) {
+                    if (j % 2 == 0) {
+                        pairGrid[i][j] = numRowsInConveyor;
+                    }
+                    else {
+                        pairGrid[i][j] = 0;
+                    }
+                }
+            }
+        } // end if numDancers > 4800
+        else {
+            // single row conveyor
+            // assign rows on pairGrid to be conveyor rows
+            for (int i = 0; i < pairGridCols; i++) {
+                for (int j = 0; j < pairGridRows; j++) {
+                    if (j % 2 == 0) {
+                        pairGrid[i][j] = 1;
+                    }
+                }
+            }
+        }
+        
         /* Calculate length of the conveyors
            divide excess by number of spots for conveyors
            if doesn't evenly divide, get lengths of "longer" and "shorter" conveyors (longer will be +1 length)
            find out how many long vs short conveyors are needed
          */
-        int numExcess = numDancers - 800; // # dancers in excess of how many can be dancing at one time
-        int numConveyorPairs = pairGridCols * pairGridRows; // total number of conveyor pair spots (40x20)
+        int numExcess = numDancers - (gridCols * gridRows)/2; // # dancers in excess of how many can be dancing at one time
+        int numConveyorPairs = pairGridCols * pairGridRows; // total number of conveyor pair spots (on a 40x40 grid, this is 40x20)
         int conveyorLenShort = numExcess / numConveyorPairs; // divide and take ceil to get length of each short conveyor
         int conveyorLenLong = conveyorLenShort + 1;
         int excessShortConveyor = numExcess - conveyorLenShort * numConveyorPairs; // number remaining needed to distribute
         int numShortConveyors = numConveyorPairs - excessShortConveyor;
         int numLongConveyors = excessShortConveyor;
-
-        // assign rows on grid to be conveyor rows
-        for (int i = 0; i < pairGridCols; i++) {
-            for (int j = 0; j < pairGridRows; j++) {
-                if (j % 2 == 0) {
-                    pairGrid[i][j] = true;
-                }
-            }
-        }
 
         boolean outbound = true;
         int numOutboundPairs = pairGridCols * pairGridRows;
@@ -358,9 +438,13 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         int currConveyor = 0; // counter: the number of conveyors placed so far
         int CONVEYOR_ROW_LEN = 5; // used when above 4800 dancers when conveyors can be multi row
         for (int dancer = 0; dancer < numDancers; dancer++) {
-            if (pairGrid[pairX][pairY]) {
+            if (pairGrid[pairX][pairY] > 0) {
                 // this is a pair spot that should be used as a conveyor
-                newSnake[dancer] = new Point(grid[x][y].x + conveyorCounter * CONVEYOR_GAP, grid[x][y].y);
+                int conveyorY = conveyorCounter / CONVEYOR_ROW_LEN;
+                int conveyorX = conveyorCounter % CONVEYOR_ROW_LEN;
+                //newSnake[dancer] = new Point(grid[x][y].x + conveyorCounter * CONVEYOR_GAP, grid[x][y].y);
+                newSnake[dancer] = new Point(grid[x][y].x + conveyorX * CONVEYOR_GAP,
+                                             grid[x][y].y + conveyorY * CONVEYOR_GAP);
                 conveyorCounter++;
                 if (currConveyor < numLongConveyors) {
                     conveyorCounter %= conveyorLenLong;
@@ -368,7 +452,6 @@ public class ConveyorPlayer implements sqdance.sim.Player {
                 else {
                     conveyorCounter %= conveyorLenShort;
                 }
-                //conveyorCounter %= CONVEYOR_ROW_LEN;
                 
                 if (conveyorCounter == 0) {
                     currConveyor++;
