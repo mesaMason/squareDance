@@ -21,7 +21,8 @@ public class ConveyorPlayer implements sqdance.sim.Player {
     private int stationaryDancer; // dancer id of the stationary one
     private int mode = 0; // 0: dance, 1: evaluate and make moves
     private Point[] destinations;
-
+    private int conveyorLen = 0; // number of dancers per conveyor
+    
     // constants
     private final double GRID_GAP = 0.50000001; // distance between grid points
     private final double DANCE_EPSILON = 0.000000001; // distance to move so that pair will dance
@@ -428,6 +429,14 @@ public class ConveyorPlayer implements sqdance.sim.Player {
         int excessShortConveyor = numExcess - conveyorLenShort * numConveyorPairs; // number remaining needed to distribute
         int numShortConveyors = numConveyorPairs - excessShortConveyor;
         int numLongConveyors = excessShortConveyor;
+
+        // set the global conveyor length - this is how many times dancer must move before it gets to dance
+        if (numExcess % numConveyorPairs == 0) {
+            conveyorLen = conveyorLenShort;
+        }
+        else {
+            conveyorLen = conveyorLenLong;
+        }
 
         boolean outbound = true;
         int numOutboundPairs = pairGridCols * pairGridRows;
